@@ -3,7 +3,7 @@
 Minimal reproduction for an expo-router (SDK 58) bug. With a tab animation enabled, the **first** switch to a lazy tab doesn't animate the incoming screen. It appears instantly, while the outgoing screen still animates out. Later switches animate both ways.
 
 - expo 58, expo-router 58.0.27, react-native 0.88.0
-- Reproduced on: web (Expo Go on Android/iOS: see the issue)
+- Reproduced on: web, Android (Expo Go)
 
 ## Run
 
