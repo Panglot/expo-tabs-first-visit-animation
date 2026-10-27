@@ -1,56 +1,40 @@
-# Welcome to your Expo app 👋
+# expo-router: JS Tabs skip the enter animation on first visit to a lazy tab
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Minimal reproduction for an expo-router (SDK 58) bug. With a tab animation enabled, the **first** switch to a lazy tab doesn't animate the incoming screen. It appears instantly, while the outgoing screen still animates out. Later switches animate both ways.
 
-## Get started
+- expo 58, expo-router 58.0.27, react-native 0.88.0
+- Reproduced on: web (Expo Go on Android/iOS: see the issue)
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Run
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Open it on web, or in Expo Go.
 
-### Other setup steps
+## Reproduce
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+The app opens on **Home** (blue). The tabs layout is [`src/app/(tabs)/_layout.tsx`](src/app/(tabs)/_layout.tsx): a plain `<Tabs>` with `animation: 'fade'` and two screens.
 
-## Learn more
+1. Tap **Settings** (red) for the first time.
+   - Expected: Home fades out, Settings fades in.
+   - Actual: Home fades out, Settings appears instantly.
+2. Tap **Home**, then **Settings** again. Both fade correctly from now on.
+3. Reload the app: the first visit to Settings skips its fade-in again.
 
-To learn more about developing your project with Expo, look at the following resources:
+Adding `lazy: false` to `screenOptions` makes step 1 animate correctly.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Cause
 
-## Join the community
+Read from `node_modules/expo-router/build/react-navigation/bottom-tabs`:
 
-Join our community of developers creating universal apps.
+1. Since [expo/expo#48618](https://github.com/expo/expo/pull/48618), an unvisited lazy tab is a placeholder route keyed by its name, e.g. `"settings"` (`standard-navigation/appendMissingPlaceholderTabRoutes.js`).
+2. On first navigation, the real route is created with a new generated key.
+3. `utils/useAnimatedHashMap.js` sees a new key and creates its `Animated.Value` at its target position. The route is already focused, so the value starts at `0`.
+4. `views/BottomTabView.js` animates the focused route to `0`. It's already there, so there's no enter animation.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Workaround
+
+Set `lazy: false`, and use `screenLayout` to render each screen's content only after its first focus. That keeps data fetching from starting at launch.
